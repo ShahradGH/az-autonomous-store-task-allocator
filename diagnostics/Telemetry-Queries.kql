@@ -1,0 +1,10 @@
+// Monitor store footfall surges, task preemptions, and hysteresis blocks
+StoreTaskAllocationAudit_CL
+| where TimeGenerated > ago(7d)
+| summarize 
+    SurgeEvents = countif(Footfall15Min_d > 150),
+    SuccessfulRebalances = countif(Action_s == "PREEMPT_TIER3_FOR_REGISTER_RELIEF"),
+    HysteresisProtected = countif(BlockedByCooldown_b == true),
+    AvgBasketLabourCostGbp = round(avg(BasketLabourCostGbp_d), 2)
+    by StoreId_s, bin(TimeGenerated, 1d)
+| order by AvgBasketLabourCostGbp desc
