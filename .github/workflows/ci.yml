@@ -1,0 +1,9 @@
+name: Store Allocator Verification
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: pwsh
+        run: Invoke-Pester -Path ./tests/StoreTaskAllocator.Tests.ps1 -Output Detailed

@@ -1,0 +1,6 @@
+{
+  "maxConsecutiveHeavyLiftMinutes": 90,
+  "mandatoryBreakCooldownMinutes": 20,
+  "maxColdRoomExposureMinutes": 45,
+  "unionShiftBoundaryEnforced": true
+}
