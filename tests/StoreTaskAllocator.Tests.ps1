@@ -1,83 +1,119 @@
 BeforeAll {
     $script:RepoRoot = Split-Path -Parent $PSScriptRoot
     $script:EvaluatorPath = Join-Path $script:RepoRoot 'src/Invoke-StoreTaskRebalance.ps1'
+    $script:PredictPath = Join-Path $script:RepoRoot 'ai/Predict-StoreQueueSurge.ps1'
+    $script:HarnessPath = Join-Path $script:RepoRoot 'ai/store-demand-eval-harness.json'
+    $script:ShiftsPath = Join-Path $script:RepoRoot 'graph/Invoke-TeamsShiftsRebalance.ps1'
     $script:KqlPath = Join-Path $script:RepoRoot 'queries/Store-Queue-Velocity.kql'
 }
 
-Describe 'Autonomous Retail Store Task Allocator: Foot-Traffic Ingestion & Teams Shifts Balancing - 16-Test Verification Matrix' {
-    Context 'Positive Path: Structural & Domain Contract Verification (8 Tests)' {
-        It 'P-01: Primary PowerShell evaluator (src/Invoke-StoreTaskRebalance.ps1) exists and is non-empty' {
-            Test-Path $script:EvaluatorPath | Should -BeTrue
-            (Get-Item $script:EvaluatorPath).Length | Should -BeGreaterThan 120
-        }
-        It 'P-02: Evaluator parses cleanly with zero PowerShell AST syntax errors' {
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($script:EvaluatorPath, [ref]$null, [ref]$errors)
-            $errors.Count | Should -Be 0
-        }
-        It 'P-03: Enforces CmdletBinding and typed parameter block' {
-            $raw = Get-Content $script:EvaluatorPath -Raw
-            $raw | Should -Match '\[CmdletBinding\(\)\]'
-            $raw | Should -Match 'param\s*\('
-        }
-        It 'P-04: Returns structured PSCustomObject decision payload for downstream audit' {
-            $raw = Get-Content $script:EvaluatorPath -Raw
-            $raw | Should -Match '\[PSCustomObject\]@\{'
-        }
-        It 'P-05: KQL telemetry query (queries/Store-Queue-Velocity.kql) defines correlation and filtering clauses' {
-            Test-Path $script:KqlPath | Should -BeTrue
-            (Get-Content $script:KqlPath -Raw) | Should -Match 'where|summarize|project'
-        }
-        It 'P-06: Domain artefact config/ergonomic-fatigue-thresholds.json exists and is non-empty' {
-            $p = Join-Path $script:RepoRoot 'config/ergonomic-fatigue-thresholds.json'
-            Test-Path $p | Should -BeTrue
-            (Get-Item $p).Length | Should -BeGreaterThan 20
+Describe 'Autonomous Store Task Allocator - Verification Matrix' {
+    Context 'Positive Path: Structural & Zero-IaC Contract Verification' {
+        It 'P-01: All PowerShell scripts exist and parse with zero AST syntax errors' {
+            foreach ($path in @($script:EvaluatorPath, $script:PredictPath, $script:ShiftsPath)) {
+                Test-Path $path | Should -BeTrue
+                $errors = $null
+                [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)
+                $errors.Count | Should -Be 0
+            }
         }
 
-        It 'P-07: Domain artefact schemas/pos-queue-telemetry.json exists and is non-empty' {
-            $p = Join-Path $script:RepoRoot 'schemas/pos-queue-telemetry.json'
-            Test-Path $p | Should -BeTrue
-            (Get-Item $p).Length | Should -BeGreaterThan 20
+        It 'P-02: Zero declarative Bicep or Terraform files exist in repository' {
+            $iacFiles = Get-ChildItem -Path $script:RepoRoot -Recurse -Include '*.bicep', '*.tf' -File
+            $iacFiles.Count | Should -Be 0
         }
 
-        It 'P-08: Domain artefact docs/STORE-OPS-RUNBOOK.md exists and is non-empty' {
-            $p = Join-Path $script:RepoRoot 'docs/STORE-OPS-RUNBOOK.md'
-            Test-Path $p | Should -BeTrue
-            (Get-Item $p).Length | Should -BeGreaterThan 20
+        It 'P-03: Demand eval harness defines Z-score threshold, 20m hysteresis, and ergonomic veto' {
+            Test-Path $script:HarnessPath | Should -BeTrue
+            $h = Get-Content $script:HarnessPath -Raw | ConvertFrom-Json
+            $h.forecastingParameters.zScoreAnomalyThreshold | Should -Be 2.2
+            $h.forecastingParameters.hysteresisDampingMinutes | Should -Be 20
+            $h.ergonomicFatigueVeto.vetoCode | Should -Be 'VETO_ERGONOMIC_FATIGUE_LIMIT'
+        }
+
+        It 'P-04: KQL telemetry query, store ops runbook, and README meet depth standards' {
+            (Get-Content $script:KqlPath -Raw) | Should -Match 'summarize|order by'
+            (Get-Item (Join-Path $script:RepoRoot 'docs/STORE-OPS-RUNBOOK.md')).Length | Should -BeGreaterThan 2000
+            (Get-Item (Join-Path $script:RepoRoot 'README.md')).Length | Should -BeGreaterThan 4000
         }
     }
 
-    Context 'Negative Path: Refusal Gates & Zero-Leak Security Boundaries (8 Tests)' {
-        It 'N-01: Evaluator defines explicit refusal, hold, or veto action codes' {
-            $raw = Get-Content $script:EvaluatorPath -Raw
-            $raw | Should -Match 'VETO|BLOCK|HOLD|DENY|REFUSAL|QUARANTINE|REVOKE|ALERT|\$false'
+    Context 'Functional AI Queue-Surge Forecasting & Ergonomic Fatigue Veto' {
+        It 'AI-01: Returns STEADY_STATE_NO_ACTION during normal footfall' {
+            $colleagues = @(
+                [PSCustomObject]@{ ColleagueId = 'COL-101'; CurrentTaskTier = 3; CurrentTaskCategory = 'AmbientReplenishment'; OnStatutoryBreak = $false; IsRegisterCertified = $true; MinutesSinceLastReassignment = 60; ReassignmentsLast4Hours = 0 }
+            )
+            $res = & $script:PredictPath -StoreId 'STR-LON-042' -HistoricalFootfall15Min @(90, 95, 100, 92, 98) -CurrentFootfall15Min 102 -OpenTills 4 -ActiveColleagues $colleagues
+            $res.ForecastVerdict | Should -Be 'STEADY_STATE_NO_ACTION'
         }
-        It 'N-02: Evaluator contains zero hardcoded storage keys, passwords, or SAS tokens' {
-            $raw = Get-Content $script:EvaluatorPath -Raw
-            $raw | Should -Not -Match 'AccountKey=|SharedAccessSignature=|Password='
+
+        It 'AI-02: Predicts surge via Z-score and delegates eligible Tier-3 colleague' {
+            $colleagues = @(
+                [PSCustomObject]@{ ColleagueId = 'COL-104'; CurrentTaskTier = 3; CurrentTaskCategory = 'AmbientReplenishment'; OnStatutoryBreak = $false; IsRegisterCertified = $true; MinutesSinceLastReassignment = 60; ReassignmentsLast4Hours = 0 }
+            )
+            $res = & $script:PredictPath -StoreId 'STR-LON-042' -HistoricalFootfall15Min @(90, 95, 100, 92, 98) -CurrentFootfall15Min 175 -OpenTills 3 -ActiveColleagues $colleagues
+            $res.ForecastVerdict | Should -Be 'SURGE_PREDICTED_REBALANCE'
+            $res.ZScore | Should -BeGreaterThan 2.2
+            $res.RebalanceResult.Action | Should -Be 'PREEMPT_TIER3_FOR_REGISTER_RELIEF'
+            $res.RebalanceResult.ReassignedIds | Should -Contain 'COL-104'
         }
-        It 'N-03: Evaluator contains zero private orchestrator domains or internal host IPs' {
-            $raw = Get-Content $script:EvaluatorPath -Raw
-            $raw | Should -Not -Match '192\.142\.41\.43|mvpfoundry\.alerasoul\.net'
+
+        It 'AI-03: Triggers VETO_ERGONOMIC_FATIGUE_LIMIT when all colleagues hit 2 swaps / 4h' {
+            $colleagues = @(
+                [PSCustomObject]@{ ColleagueId = 'COL-105'; CurrentTaskTier = 3; CurrentTaskCategory = 'AmbientReplenishment'; OnStatutoryBreak = $false; IsRegisterCertified = $true; MinutesSinceLastReassignment = 50; ReassignmentsLast4Hours = 2 }
+            )
+            $res = & $script:PredictPath -StoreId 'STR-LON-042' -HistoricalFootfall15Min @(90, 95, 100, 92, 98) -CurrentFootfall15Min 180 -OpenTills 3 -ActiveColleagues $colleagues
+            $res.ForecastVerdict | Should -Be 'VETO_ERGONOMIC_FATIGUE_LIMIT'
+            $res.FatigueVetoedIds | Should -Contain 'COL-105'
         }
-        It 'N-04: KQL query contains zero internal sequence tags or private URLs' {
-            $kql = Get-Content $script:KqlPath -Raw
-            $kql | Should -Not -Match 'mvpfoundry\.alerasoul\.net|Decision Pack 0'
+    }
+
+    Context 'Graph v2.x Teams Shifts & 20-Minute Hysteresis Damping' {
+        It 'GRAPH-01: Suppresses rebalance card with DAMPED_HYSTERESIS_WINDOW when last swap < 20m' {
+            $forecast = [PSCustomObject]@{
+                StoreId              = 'STR-LON-042'
+                ForecastVerdict      = 'SURGE_PREDICTED_REBALANCE'
+                ZScore               = 3.4
+                PredictedWaitMinutes = 6.2
+                RebalanceResult      = [PSCustomObject]@{ Action = 'PREEMPT_TIER3_FOR_REGISTER_RELIEF'; ReassignedIds = @('COL-104') }
+            }
+            $res = & $script:ShiftsPath -ForecastResult $forecast -TeamId 'team-1' -ChannelId 'chan-1' -MinutesSinceLastStoreRebalance 12 -DryRun
+            $res.Status | Should -Be 'DAMPED_HYSTERESIS_WINDOW'
+            $res.Dispatched | Should -BeFalse
         }
-        It 'N-05: README documentation contains zero internal sequence numbering' {
-            $readme = Get-Content (Join-Path $script:RepoRoot 'README.md') -Raw
-            $readme | Should -Not -Match 'Decision Pack 0|mvpfoundry\.alerasoul\.net'
+
+        It 'GRAPH-02: Stages Teams Shifts & Adaptive Card v1.5 in DryRun mode after cooldown' {
+            $forecast = [PSCustomObject]@{
+                StoreId              = 'STR-LON-042'
+                ForecastVerdict      = 'SURGE_PREDICTED_REBALANCE'
+                ZScore               = 3.4
+                PredictedWaitMinutes = 6.2
+                RebalanceResult      = [PSCustomObject]@{ Action = 'PREEMPT_TIER3_FOR_REGISTER_RELIEF'; ReassignedIds = @('COL-104') }
+            }
+            $res = & $script:ShiftsPath -ForecastResult $forecast -TeamId 'team-1' -ChannelId 'chan-1' -MinutesSinceLastStoreRebalance 35 -DryRun
+            $res.Status | Should -Be 'DRY_RUN_SHIFTS_CARD_STAGED'
+            $res.GraphShiftsUri | Should -Match '/teams/team-1/schedule/shifts'
+            $res.CardPayload.attachments[0].content | Should -Match 'ACCEPT_TILL_RELIEF'
         }
-        It 'N-06: Enforces fail-closed ErrorActionPreference or deterministic condition branches' {
-            $raw = Get-Content $script:EvaluatorPath -Raw
-            $raw | Should -Match 'ErrorActionPreference|if\s*\('
+
+        It 'OPS-01: Protects ChilledDeliveryUnload colleagues and escalates to Duty Store Manager' {
+            $telemetry = [PSCustomObject]@{ StoreId = 'STR-LON-042'; Footfall15Min = 180; EstimatedQueueWaitMinutes = 6.5 }
+            $colleagues = @(
+                [PSCustomObject]@{ ColleagueId = 'COL-201'; CurrentTaskTier = 3; CurrentTaskCategory = 'ChilledDeliveryUnload'; OnStatutoryBreak = $false; IsRegisterCertified = $true; MinutesSinceLastReassignment = 90 }
+            )
+            $res = & $script:EvaluatorPath -StoreTelemetry $telemetry -ActiveColleagues $colleagues
+            $res.Action | Should -Be 'ESCALATE_TO_DUTY_STORE_MANAGER'
+            $res.ReassignedIds.Count | Should -Be 0
         }
-        It 'N-07: Repository root excludes internal agent guidelines or pre-commit hook scripts' {
-            Test-Path (Join-Path $script:RepoRoot 'AGENTS.md') | Should -BeFalse
-            Test-Path (Join-Path $script:RepoRoot '.githooks') | Should -BeFalse
-        }
-        It 'N-08: Open-source MIT LICENSE is present at repository root' {
-            Test-Path (Join-Path $script:RepoRoot 'LICENSE') | Should -BeTrue
+    }
+
+    Context 'Zero-Leak Security & Governance Boundaries' {
+        It 'N-01: Repository contains zero hardcoded secrets, private IPs, or internal sequence numbers' {
+            $files = Get-ChildItem -Path $script:RepoRoot -Recurse -File -Include '*.ps1', '*.md', '*.kql', '*.json' | Where-Object { $_.Name -notlike '*.Tests.ps1' }
+            foreach ($f in $files) {
+                $raw = Get-Content $f.FullName -Raw
+                $raw | Should -Not -Match 'AccountKey=|SharedAccessSignature=|192\.142\.41\.43|mvpfoundry\.alerasoul\.net|Decision Pack 0'
+            }
         }
     }
 }

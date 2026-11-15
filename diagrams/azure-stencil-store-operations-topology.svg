@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="Segoe UI, Inter, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg09" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1128"/>
+      <stop offset="100%" stop-color="#0e1c38"/>
+    </linearGradient>
+    <marker id="c09" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#38bdf8"/></marker>
+    <marker id="g09" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#34d399"/></marker>
+    <marker id="a09" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#fbbf24"/></marker>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg09)"/>
+  <text x="64" y="68" fill="#f8fafc" font-size="32" font-weight="700">AUTONOMOUS STORE TASK ALLOCATOR: EDGE POS TELEMETRY &amp; TEAMS SHIFTS TOPOLOGY</text>
+  <text x="64" y="102" fill="#94a3b8" font-size="18">15-Min EWMA + Z-Score Forecasting | Ergonomic Fatigue Veto | 20-Min Hysteresis Damping | Graph v2.x Shifts</text>
+
+  <!-- Left: Store Edge (STR-LON-042) -->
+  <rect x="64" y="145" width="410" height="840" rx="16" fill="#0d1936" stroke="#38bdf8" stroke-width="2"/>
+  <text x="90" y="185" fill="#38bdf8" font-size="20" font-weight="700">STORE EDGE — STR-LON-042</text>
+  <text x="90" y="212" fill="#94a3b8" font-size="14">Synthetic Branch Subnet (198.51.100.0/24)</text>
+
+  <rect x="90" y="245" width="358" height="185" rx="10" fill="#1e293b" stroke="#60a5fa"/>
+  <text x="110" y="278" fill="#f8fafc" font-size="17" font-weight="700">POS &amp; Door Footfall Counters</text>
+  <text x="110" y="308" fill="#cbd5e1" font-size="14">15-minute rolling arrival rate</text>
+  <text x="110" y="336" fill="#cbd5e1" font-size="14">Active Open Tills count (28 cust/15m/till)</text>
+  <text x="110" y="372" fill="#38bdf8" font-size="13" font-weight="600">Streamed over Private TLS Tunnel</text>
+
+  <rect x="90" y="465" width="358" height="225" rx="10" fill="#1e293b" stroke="#fbbf24"/>
+  <text x="110" y="498" fill="#fbbf24" font-size="17" font-weight="700">Protected Floor Task Tiers</text>
+  <text x="110" y="528" fill="#f87171" font-size="14" font-weight="600">Tier 1 (Locked): ChilledDeliveryUnload</text>
+  <text x="110" y="556" fill="#f87171" font-size="14" font-weight="600">Tier 1 (Locked): OnStatutoryBreak</text>
+  <text x="110" y="584" fill="#cbd5e1" font-size="14">Tier 2 (Locked): AgeRestrictedCheckout</text>
+  <text x="110" y="612" fill="#34d399" font-size="14" font-weight="600">Tier 3 (Eligible): AmbientReplenishment</text>
+  <text x="110" y="650" fill="#94a3b8" font-size="13">Cold-chain &amp; break compliance enforced</text>
+
+  <rect x="90" y="725" width="358" height="210" rx="10" fill="#1e293b" stroke="#34d399"/>
+  <text x="110" y="758" fill="#6ee7b7" font-size="17" font-weight="700">Azure Monitor FinOps Telemetry</text>
+  <text x="110" y="788" fill="#cbd5e1" font-size="14">StoreTaskAllocationAudit_CL</text>
+  <text x="110" y="816" fill="#cbd5e1" font-size="14">Tracks SurgeEvents, HysteresisProtected,</text>
+  <text x="110" y="844" fill="#cbd5e1" font-size="14">and AvgBasketLabourCostGbp</text>
+  <text x="110" y="882" fill="#94a3b8" font-size="13">queries/Store-Queue-Velocity.kql</text>
+
+  <!-- Center: AI Forecasting & Ergonomic Gate -->
+  <rect x="520" y="145" width="840" height="840" rx="16" fill="#0d1936" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="10,6"/>
+  <text x="550" y="185" fill="#c4b5fd" font-size="20" font-weight="700">AZURE UK SOUTH FORECASTING &amp; ERGONOMIC ENGINE</text>
+  <text x="550" y="212" fill="#94a3b8" font-size="14">PowerShell 7.4+ Control Plane | Zero Bicep / Zero Terraform</text>
+
+  <rect x="550" y="245" width="780" height="240" rx="12" fill="#1e1b4b" stroke="#a78bfa" stroke-width="2"/>
+  <text x="575" y="280" fill="#e9d5ff" font-size="19" font-weight="700">1. Queue-Surge Anomaly Forecaster</text>
+  <text x="575" y="308" fill="#cbd5e1" font-size="14">ai/Predict-StoreQueueSurge.ps1 + ai/store-demand-eval-harness.json</text>
+  <text x="575" y="342" fill="#cbd5e1" font-size="14">• EWMA (alpha=0.45) + 15-min Z-Score anomaly detection (threshold &gt;= 2.2)</text>
+  <text x="575" y="370" fill="#cbd5e1" font-size="14">• Projects till wait time (surge if &gt; 4.0m or Footfall &gt; 150)</text>
+  <text x="575" y="406" fill="#34d399" font-size="15" font-weight="700">• Ergonomic Fatigue Veto: Max 2 swaps / 4h &amp; &gt;= 20m colleague cooldown</text>
+  <text x="575" y="442" fill="#f87171" font-size="14" font-weight="700">Veto: VETO_ERGONOMIC_FATIGUE_LIMIT</text>
+
+  <rect x="550" y="520" width="780" height="215" rx="12" fill="#0f2922" stroke="#34d399" stroke-width="2"/>
+  <text x="575" y="555" fill="#6ee7b7" font-size="19" font-weight="700">2. Deterministic Task-Tier Rebalancer</text>
+  <text x="575" y="583" fill="#cbd5e1" font-size="14">src/Invoke-StoreTaskRebalance.ps1</text>
+  <text x="575" y="616" fill="#cbd5e1" font-size="14">• Filters strictly for Tier-3 deferrable tasks &amp; register-certified staff</text>
+  <text x="575" y="644" fill="#cbd5e1" font-size="14">• Enforces 45-minute colleague preemption hysteresis</text>
+  <text x="575" y="684" fill="#34d399" font-size="15" font-weight="700">Action: PREEMPT_TIER3_FOR_REGISTER_RELIEF | ESCALATE_TO_DUTY_STORE_MANAGER</text>
+
+  <rect x="550" y="770" width="780" height="175" rx="12" fill="#132347" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="575" y="805" fill="#fbbf24" font-size="18" font-weight="700">3. 20-Minute Store Hysteresis Damper</text>
+  <text x="575" y="836" fill="#cbd5e1" font-size="14">graph/Invoke-TeamsShiftsRebalance.ps1</text>
+  <text x="575" y="866" fill="#cbd5e1" font-size="14">Suppresses transient POS spikes if MinutesSinceLastStoreRebalance &lt; 20m</text>
+  <text x="575" y="902" fill="#fde68a" font-size="14" font-weight="700">Status: DAMPED_HYSTERESIS_WINDOW (Zero Floor Thrashing)</text>
+
+  <!-- Right: Microsoft Teams Shifts & Colleagues -->
+  <rect x="1406" y="145" width="450" height="840" rx="16" fill="#0d1936" stroke="#34d399" stroke-width="2"/>
+  <text x="1432" y="185" fill="#34d399" font-size="20" font-weight="700">MICROSOFT TEAMS &amp; SHIFTS</text>
+  <text x="1432" y="212" fill="#94a3b8" font-size="14">Microsoft Graph v2.x Floor Negotiation</text>
+
+  <rect x="1432" y="250" width="398" height="205" rx="10" fill="#1e293b" stroke="#38bdf8"/>
+  <text x="1452" y="284" fill="#93c5fd" font-size="17" font-weight="700">Graph Teams Shifts Verification</text>
+  <text x="1452" y="314" fill="#cbd5e1" font-size="14">GET /teams/{id}/schedule/shifts</text>
+  <text x="1452" y="344" fill="#cbd5e1" font-size="14">Confirms active colleague shift window</text>
+  <text x="1452" y="374" fill="#cbd5e1" font-size="14">and scheduled break boundaries.</text>
+
+  <rect x="1432" y="490" width="398" height="280" rx="10" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+  <text x="1452" y="524" fill="#6ee7b7" font-size="17" font-weight="700">Adaptive Card v1.5 Relief Prompt</text>
+  <text x="1452" y="554" fill="#cbd5e1" font-size="14">POST /teams/{id}/channels/{id}/messages</text>
+  <text x="1452" y="586" fill="#f8fafc" font-size="14" font-weight="600">Predicted Wait: 6.2 mins | Z-Score: 3.4</text>
+  <rect x="1452" y="615" width="175" height="44" rx="6" fill="#065f46" stroke="#34d399"/>
+  <text x="1539" y="642" text-anchor="middle" fill="#ecfdf5" font-size="13" font-weight="600">Accept Till Relief</text>
+  <rect x="1638" y="615" width="172" height="44" rx="6" fill="#334155" stroke="#94a3b8"/>
+  <text x="1724" y="642" text-anchor="middle" fill="#f8fafc" font-size="13" font-weight="600">Defer (Critical)</text>
+  <text x="1452" y="705" fill="#94a3b8" font-size="13">Collaborative floor relief, never forced</text>
+
+  <!-- Arrows -->
+  <path d="M 448 335 L 544 335" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#c09)" fill="none"/>
+  <path d="M 448 560 L 544 620" stroke="#fbbf24" stroke-width="2" marker-end="url(#a09)" fill="none"/>
+  <path d="M 940 485 L 940 514" stroke="#34d399" stroke-width="2.5" marker-end="url(#g09)" fill="none"/>
+  <path d="M 940 735 L 940 764" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#a09)" fill="none"/>
+  <path d="M 1330 845 L 1426 355" stroke="#38bdf8" stroke-width="2" marker-end="url(#c09)" fill="none"/>
+  <path d="M 1330 870 L 1426 630" stroke="#34d399" stroke-width="2.5" marker-end="url(#g09)" fill="none"/>
+</svg>

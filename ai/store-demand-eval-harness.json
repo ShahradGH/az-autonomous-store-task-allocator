@@ -1,0 +1,41 @@
+{
+  "harnessVersion": "2026.11.1",
+  "forecastingParameters": {
+    "windowMinutes": 15,
+    "ewmaAlpha": 0.45,
+    "zScoreAnomalyThreshold": 2.2,
+    "surgeFootfallThreshold": 150,
+    "maxQueueWaitMinutes": 4.0,
+    "hysteresisDampingMinutes": 20
+  },
+  "ergonomicFatigueVeto": {
+    "maxReassignmentsPer4Hours": 2,
+    "minCooldownBetweenSwapsMinutes": 20,
+    "protectedTaskCategories": [
+      "ChilledDeliveryUnload",
+      "AgeRestrictedCheckout",
+      "StatutoryBreak"
+    ],
+    "vetoCode": "VETO_ERGONOMIC_FATIGUE_LIMIT"
+  },
+  "goldenScenarios": [
+    {
+      "scenarioId": "POS-SURGE-01",
+      "storeId": "STR-LON-042",
+      "baselineFootfallMean": 95,
+      "baselineFootfallStdDev": 14,
+      "currentFootfall15Min": 172,
+      "openTills": 3,
+      "expectedVerdict": "SURGE_PREDICTED_REBALANCE"
+    },
+    {
+      "scenarioId": "POS-NORMAL-02",
+      "storeId": "STR-LON-042",
+      "baselineFootfallMean": 95,
+      "baselineFootfallStdDev": 14,
+      "currentFootfall15Min": 108,
+      "openTills": 4,
+      "expectedVerdict": "STEADY_STATE_NO_ACTION"
+    }
+  ]
+}
