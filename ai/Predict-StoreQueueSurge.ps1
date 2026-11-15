@@ -24,11 +24,92 @@ param(
     [PSCustomObject[]]$ActiveColleagues,
 
     [Parameter()]
-    [string]$HarnessPath = (Join-Path $PSScriptRoot 'store-demand-eval-harness.json')
+    [string]$HarnessPath = (Join-Path $PSScriptRoot 'store-demand-eval-harness.json'),
+
+    [Parameter()]
+    [string]$FoundryEndpoint = '',
+
+    [Parameter()]
+    [string]$FoundryApiKey = '',
+
+    [Parameter()]
+    [string]$FoundryDeployment = 'gpt-4o',
+
+    [Parameter()]
+    [string]$FoundryApiVersion = '2024-10-21',
+
+    [Parameter()]
+    [switch]$UseLiveFoundry
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($UseLiveFoundry) {
+    if ([string]::IsNullOrWhiteSpace($FoundryEndpoint)) {
+        throw [System.ArgumentException]::new('Fail-closed: -FoundryEndpoint is required when -UseLiveFoundry is specified.')
+    }
+    if ($FoundryEndpoint -notmatch '^https://') {
+        throw [System.ArgumentException]::new('Fail-closed: -FoundryEndpoint must use https://.')
+    }
+}
+
+function Get-FoundryAuthHeader {
+    param([string]$ApiKey)
+    if (-not [string]::IsNullOrWhiteSpace($ApiKey)) {
+        return @{
+            'api-key'      = $ApiKey
+            'Content-Type' = 'application/json'
+        }
+    }
+    if (Get-Command -Name 'Get-AzAccessToken' -ErrorAction SilentlyContinue) {
+        $tok = Get-AzAccessToken -ResourceUrl 'https://cognitiveservices.azure.com' -ErrorAction Stop
+        $rawToken = if ($tok.Token -is [System.Security.SecureString]) {
+            [System.Net.NetworkCredential]::new('', $tok.Token).Password
+        } else {
+            [string]$tok.Token
+        }
+        return @{
+            'Authorization' = "Bearer $rawToken"
+            'Content-Type'  = 'application/json'
+        }
+    }
+    $imdsUri = 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://cognitiveservices.azure.com'
+    $imdsResp = Invoke-RestMethod -Method Get -Uri $imdsUri -Headers @{ Metadata = 'true' } -TimeoutSec 5 -ErrorAction Stop
+    return @{
+        'Authorization' = "Bearer $($imdsResp.access_token)"
+        'Content-Type'  = 'application/json'
+    }
+}
+
+function Invoke-FoundryJsonInference {
+    param(
+        [string]$Endpoint,
+        [string]$ApiKey,
+        [string]$Deployment,
+        [string]$ApiVersion,
+        [string]$SystemPrompt,
+        [hashtable]$Payload
+    )
+    $uri = if ($Endpoint -match '/chat/completions') {
+        $Endpoint
+    } else {
+        "$($Endpoint.TrimEnd('/'))/openai/deployments/$Deployment/chat/completions?api-version=$ApiVersion"
+    }
+    $headers = Get-FoundryAuthHeader -ApiKey $ApiKey
+    $body = @{
+        temperature     = 0.0
+        response_format = @{ type = 'json_object' }
+        messages        = @(
+            @{ role = 'system'; content = $SystemPrompt },
+            @{ role = 'user'; content = ($Payload | ConvertTo-Json -Depth 6 -Compress) }
+        )
+    } | ConvertTo-Json -Depth 8 -Compress
+
+    $resp = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body $body -TimeoutSec 30 -ErrorAction Stop
+    $content = $resp.choices[0].message.content
+    return ($content | ConvertFrom-Json -ErrorAction Stop)
+}
 
 $harness = Get-Content -Path $HarnessPath -Raw | ConvertFrom-Json
 $alpha = [double]$harness.forecastingParameters.ewmaAlpha
@@ -55,6 +136,47 @@ $predictedWaitMinutes = [Math]::Round([Math]::Max(0.5, $pressureRatio * 3.2), 2)
 
 $isSurge = ($zScore -ge $zThreshold) -or ($CurrentFootfall15Min -gt [double]$harness.forecastingParameters.surgeFootfallThreshold) -or ($predictedWaitMinutes -gt [double]$harness.forecastingParameters.maxQueueWaitMinutes)
 
+$inferenceMode = 'DETERMINISTIC_LOCAL'
+$foundryRationale = $null
+
+if ($UseLiveFoundry) {
+    $allowedVerdicts = @('STEADY_STATE_NO_ACTION', 'SURGE_PREDICTED_REBALANCE', 'VETO_ERGONOMIC_FATIGUE_LIMIT')
+    try {
+        $foundryResult = Invoke-FoundryJsonInference `
+            -Endpoint $FoundryEndpoint `
+            -ApiKey $FoundryApiKey `
+            -Deployment $FoundryDeployment `
+            -ApiVersion $FoundryApiVersion `
+            -SystemPrompt 'You are a retail store queue-surge forecaster. Return JSON with keys: forecastVerdict (STEADY_STATE_NO_ACTION|SURGE_PREDICTED_REBALANCE|VETO_ERGONOMIC_FATIGUE_LIMIT), rationale (string).' `
+            -Payload @{
+                storeId              = $StoreId
+                currentFootfall15Min = $CurrentFootfall15Min
+                ewmaBaseline         = [Math]::Round($ewma, 1)
+                zScore               = $zScore
+                predictedWaitMinutes = $predictedWaitMinutes
+                openTills            = $OpenTills
+                deterministicSurge   = $isSurge
+            }
+
+        $llmVerdict = if ($null -ne $foundryResult.PSObject.Properties['forecastVerdict']) { [string]$foundryResult.forecastVerdict } else { '' }
+        if ($llmVerdict -in $allowedVerdicts) {
+            $inferenceMode = 'LIVE_FOUNDRY'
+            if ($null -ne $foundryResult.PSObject.Properties['rationale']) {
+                $foundryRationale = [string]$foundryResult.rationale
+            }
+            if (-not $isSurge -and $llmVerdict -eq 'SURGE_PREDICTED_REBALANCE') {
+                $isSurge = $true
+            }
+        } else {
+            Write-Warning "Foundry returned invalid forecastVerdict '$llmVerdict'; falling back to deterministic EWMA/Z-score."
+            $inferenceMode = 'DETERMINISTIC_FALLBACK'
+        }
+    } catch {
+        Write-Warning "Live Foundry inference failed ($($_.Exception.Message)); falling back to deterministic EWMA/Z-score."
+        $inferenceMode = 'DETERMINISTIC_FALLBACK'
+    }
+}
+
 if (-not $isSurge) {
     return [PSCustomObject]@{
         StoreId              = $StoreId
@@ -64,6 +186,8 @@ if (-not $isSurge) {
         PredictedWaitMinutes = $predictedWaitMinutes
         FatigueVetoedIds     = @()
         RebalanceResult      = $null
+        InferenceMode        = $inferenceMode
+        FoundryRationale     = $foundryRationale
     }
 }
 
@@ -89,6 +213,8 @@ if ($fitColleagues.Count -eq 0) {
         PredictedWaitMinutes = $predictedWaitMinutes
         FatigueVetoedIds     = $fatigueVetoed.ToArray()
         RebalanceResult      = $null
+        InferenceMode        = $inferenceMode
+        FoundryRationale     = $foundryRationale
     }
 }
 
@@ -109,4 +235,6 @@ return [PSCustomObject]@{
     PredictedWaitMinutes = $predictedWaitMinutes
     FatigueVetoedIds     = $fatigueVetoed.ToArray()
     RebalanceResult      = $rebalance
+    InferenceMode        = $inferenceMode
+    FoundryRationale     = $foundryRationale
 }

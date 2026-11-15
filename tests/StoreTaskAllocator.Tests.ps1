@@ -66,6 +66,31 @@ Describe 'Autonomous Store Task Allocator - Verification Matrix' {
             $res.ForecastVerdict | Should -Be 'VETO_ERGONOMIC_FATIGUE_LIMIT'
             $res.FatigueVetoedIds | Should -Contain 'COL-105'
         }
+
+        It 'AI-04: Fails closed when -UseLiveFoundry is set without -FoundryEndpoint and supports mocked live Foundry REST call' {
+            $colleagues = @(
+                [PSCustomObject]@{ ColleagueId = 'COL-101'; CurrentTaskTier = 3; CurrentTaskCategory = 'AmbientReplenishment'; OnStatutoryBreak = $false; IsRegisterCertified = $true; MinutesSinceLastReassignment = 60; ReassignmentsLast4Hours = 0 }
+            )
+
+            { & $script:PredictPath -StoreId 'STR-LON-042' -HistoricalFootfall15Min @(90, 95, 100, 92, 98) -CurrentFootfall15Min 102 -OpenTills 4 -ActiveColleagues $colleagues -UseLiveFoundry } | Should -Throw '*FoundryEndpoint*'
+
+            Mock Invoke-RestMethod {
+                return [PSCustomObject]@{
+                    choices = @(
+                        [PSCustomObject]@{
+                            message = [PSCustomObject]@{
+                                content = '{"forecastVerdict":"STEADY_STATE_NO_ACTION","rationale":"Footfall within normal EWMA band."}'
+                            }
+                        }
+                    )
+                }
+            }
+
+            $res = & $script:PredictPath -StoreId 'STR-LON-042' -HistoricalFootfall15Min @(90, 95, 100, 92, 98) -CurrentFootfall15Min 102 -OpenTills 4 -ActiveColleagues $colleagues -UseLiveFoundry -FoundryEndpoint 'https://contoso-foundry.openai.azure.com' -FoundryApiKey 'test-key'
+            $res.InferenceMode | Should -Be 'LIVE_FOUNDRY'
+            $res.ForecastVerdict | Should -Be 'STEADY_STATE_NO_ACTION'
+            Should -Invoke Invoke-RestMethod -Times 1
+        }
     }
 
     Context 'Graph v2.x Teams Shifts & 20-Minute Hysteresis Damping' {
